@@ -263,7 +263,7 @@ def text(  # ruff: ignore[too-many-branches, too-many-statements]
 
     # Build the -F option.
     if kwargs.get("F") is None and any(
-        v is not None or v is not False for v in (position, angle, font, justify)
+        v is not None and v is not False for v in (position, angle, font, justify)
     ):
         kwargs.update({"F": ""})
 

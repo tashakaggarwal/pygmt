@@ -3,11 +3,13 @@ Test Figure.text.
 """
 
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 from packaging.version import Version
 from pygmt import Figure, config
+from pygmt.clib import Session
 from pygmt.clib.session import __gmt_version__
 from pygmt.exceptions import GMTCLibError, GMTParameterError, GMTTypeError
 from pygmt.helpers import GMTTempFile
@@ -517,3 +519,15 @@ def test_text_nonascii_iso8859():
     fig.text(x=1, y=1, text="xytext:1éęëė2")
     fig.text(x=[5, 5], y=[3, 5], text=["xytext1:ųúûüũūαζ∆❡", "xytext2:íîī∑π∇✉"])
     return fig
+
+
+def test_text_no_f_option_by_default():
+    """
+    Test that no -F option is passed to GMT if no -F related parameter is given.
+    """
+    fig = Figure()
+    fig.basemap(region=[0, 10, 0, 10], projection="X5c", frame=True)
+    with patch.object(Session, "call_module", autospec=True) as mock_call:
+        fig.text(x=1, y=1, text="hi")
+    args = mock_call.call_args.kwargs.get("args") or mock_call.call_args.args[-1]
+    assert not any(arg.startswith("-F") for arg in args)
