@@ -2,6 +2,7 @@
 Test the helper functions/classes/etc used in wrapping GMT.
 """
 
+import datetime
 import shutil
 import sys
 from pathlib import Path
@@ -20,6 +21,7 @@ from pygmt.helpers import (
     unique_name,
 )
 from pygmt.helpers.testing import load_static_earth_relief, skip_if_no
+from pygmt.helpers.utils import sequence_join
 from pygmt.params import Axis, Frame
 
 
@@ -209,3 +211,15 @@ def test_launch_external_viewer_unknown_os(fname):
         fullpath = Path(fname).resolve()
         assert fullpath.is_absolute()
         mock_open.assert_called_once_with(f"file://{fullpath}")
+
+
+def test_sequence_join_strings_with_spaces_and_2d_datetimes():
+    """
+    Test that strings with spaces are not treated as datetimes and that datetime-like
+    objects in 2-D sequences are converted to ISO 8601 strings.
+    """
+    assert sequence_join(["a b", "c"], sep="/") == "a b/c"
+    result = sequence_join(
+        [[datetime.datetime(2020, 1, 1), datetime.datetime(2020, 2, 1)]], ndim=2
+    )
+    assert result == ["2020-01-01T00:00:00.000000/2020-02-01T00:00:00.000000"]

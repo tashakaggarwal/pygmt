@@ -761,6 +761,38 @@ def args_in_kwargs(args: Sequence[str], kwargs: dict[str, Any]) -> bool:
     return any(is_given(kwargs.get(arg)) for arg in args)
 
 
+def _item_to_str(item: Any) -> str:
+    """
+    Convert a single item of a sequence to a string that GMT understands.
+
+    Datetime-like objects are converted to ISO 8601 strings and ``np.timedelta64``
+    objects to integers. Strings are never treated as datetimes, so a string that
+    contains a space (e.g., ``"a b"``) is kept as is.
+
+    Examples
+    --------
+    >>> import datetime
+    >>> import numpy as np
+    >>> _item_to_str(1.5)
+    '1.5'
+    >>> _item_to_str("a b")
+    'a b'
+    >>> _item_to_str(datetime.datetime(2010, 3, 1))
+    '2010-03-01T00:00:00.000000'
+    >>> _item_to_str(np.timedelta64(3, "D"))
+    '3'
+    """
+    # 'str(v)' produces a string like '2024-01-01 00:00:00' for some datetime-like
+    # objects (e.g., datetime.datetime, pandas.Timestamp), and a string like
+    # '0 days' for np.timedelta64 objects. Need to convert them to ISO 8601 string
+    # format 'YYYY-MM-DDThh:mm:ss.ffffff' or integer number for timedelta64.
+    if isinstance(item, np.timedelta64):  # Convert timedelta64 to numeric value
+        return str(item.astype(int))
+    if not isinstance(item, str) and " " in str(item):
+        return str(np.datetime_as_string(np.asarray(item, dtype="datetime64")))  # type: ignore[arg-type]
+    return str(item)
+
+
 def sequence_join(
     value: Any,
     sep: str = "/",
@@ -918,17 +950,7 @@ def sequence_join(
         # '0 days' for np.timedelta64 objects.
         # Need to convert them to ISO 8601 string format 'YYYY-MM-DDThh:mm:ss.ffffff'
         # or integer number for timedelta64.
-        _values = []
-        for item in value:
-            if isinstance(item, np.timedelta64):  # Convert timedelta64 to numeric value
-                _values.append(str(item.astype(int)))
-            elif " " in str(item):
-                _values.append(
-                    np.datetime_as_string(np.asarray(item, dtype="datetime64"))  # type: ignore[arg-type]
-                )
-            else:
-                _values.append(str(item))
-        return sep.join(_values)  # type: ignore[arg-type]
+        return sep.join(_item_to_str(item) for item in value)
 
     # Now it must be a 2-D sequence.
     if ndim == 1:
@@ -937,4 +959,4 @@ def sequence_join(
     if size is not None and any(len(i) not in size for i in value):
         msg = f"{errmsg['name']}Expected a sequence of {errmsg['sizes']} values."
         raise GMTInvalidInput(msg)
-    return [sep.join(str(j) for j in sub) for sub in value]
+    return [sep.join(_item_to_str(j) for j in sub) for sub in value]
